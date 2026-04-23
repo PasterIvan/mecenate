@@ -43,6 +43,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "12225fc7-9830-4d96-b1ce-2fa0fe5b4da9"
+      }
+    },
+    "owner": "pasterivan",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/12225fc7-9830-4d96-b1ce-2fa0fe5b4da9"
     }
   }
 }

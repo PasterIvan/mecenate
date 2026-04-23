@@ -10,7 +10,14 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Create `.env` in the project root
+
+   ```env
+   EXPO_PUBLIC_API_BASE_URL=https://k8s.mectest.ru/test-app
+   EXPO_PUBLIC_TEST_USER_UUID=550e8400-e29b-41d4-a716-446655440000
+   ```
+
+3. Start the app
 
    ```bash
    npx expo start
