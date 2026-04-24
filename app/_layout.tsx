@@ -21,6 +21,26 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { RootStore } from "@/stores/root-store";
 import { RootStoreProvider } from "@/stores/root-store-context";
 
+const APP_BACKGROUND = "#F5F8FD";
+
+const AppLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: APP_BACKGROUND,
+    card: APP_BACKGROUND,
+  },
+};
+
+const AppDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: APP_BACKGROUND,
+    card: APP_BACKGROUND,
+  },
+};
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [queryClient] = useState(() => new QueryClient());
@@ -40,7 +60,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <RootStoreProvider store={rootStore}>
         <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          value={colorScheme === "dark" ? AppDarkTheme : AppLightTheme}
         >
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -55,7 +75,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style="dark" />
         </ThemeProvider>
       </RootStoreProvider>
     </QueryClientProvider>

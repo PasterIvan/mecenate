@@ -1,6 +1,6 @@
 export const tokens = {
   colors: {
-    background: '#F5F6FA',
+    background: '#F5F8FD',
     surface: '#FFFFFF',
     white: '#FFFFFF',
     textPrimary: '#1C1D22',
