@@ -12,6 +12,7 @@ export const tokens = {
     pillBackground: '#E9EDF3',
     accent: '#7A5AF8',
     accentStrong: '#652CD4',
+    likeActive: '#FF4D8D',
     danger: '#D92D20',
     paidOverlay: '#F3F4F8',
     paidCoverOverlay: 'rgba(23, 25, 34, 0.55)',

@@ -1,121 +1,137 @@
-import {Image} from 'expo-image';
-import {memo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { memo } from "react";
+import {
+  GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { CommentIcon } from '@/assets/components/comment-icon';
-import { DollarIcon } from '@/assets/components/dollar-icon';
-import { LikeIcon } from '@/assets/components/like-icon';
-import {tokens} from '@/constants/tokens';
-import {Post} from '@/types/feed';
+import { togglePostLike } from "@/api/posts";
+import { CommentIcon } from "@/assets/components/comment-icon";
+import { LikeIcon } from "@/assets/components/like-icon";
+import { ExpandablePreview } from "@/components/feed/expandable-preview";
+import { PaidPostCardContent } from "@/components/feed/paid-post-card-content";
+import { PostAuthorRow } from "@/components/post/post-author-row";
+import { tokens } from "@/constants/tokens";
+import { usePostStore } from "@/stores/root-store-context";
+import { FeedPage, Post } from "@/types/feed";
 
 type FeedPostCardProps = {
   post: Post;
+  previewText?: string;
+  expandedPreview?: boolean;
+  openPostOnPress?: boolean;
 };
 
-const PREVIEW_COLLAPSED_LINES = 2;
-const PREVIEW_ACTION_TEXT = 'Показать еще';
-const PREVIEW_RESERVED_CHARS = PREVIEW_ACTION_TEXT.length + 6;
+export function FeedPostCardComponent({
+  post,
+  previewText,
+  expandedPreview = false,
+  openPostOnPress = true,
+}: FeedPostCardProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const postStore = usePostStore();
+  const isPaid = post.tier === "paid";
+  const contentPreview = previewText ?? post.preview;
 
-function ExpandablePreview({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const [isOverflowing, setIsOverflowing] = useState<boolean | null>(null);
-  const [collapsedText, setCollapsedText] = useState(text);
+  const likeMutation = useMutation({
+    mutationFn: () => togglePostLike(post.id),
+    onSuccess: ({ isLiked, likesCount }) => {
+      queryClient.setQueryData(
+        ["post", post.id],
+        (current: Post | undefined) => {
+          const next = current ? { ...current, isLiked, likesCount } : current;
+          if (next) {
+            postStore.upsert(next);
+          }
+          return next;
+        },
+      );
+      queryClient.setQueriesData(
+        { queryKey: ["feed"] },
+        (data: { pages: FeedPage[] } | undefined) => {
+          if (!data) {
+            return data;
+          }
 
-  const handleMeasureLayout = (event: { nativeEvent: { lines: Array<{ text: string }> } }) => {
-    if (isOverflowing !== null) {
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map((postItem) =>
+                postItem.id === post.id
+                  ? { ...postItem, isLiked, likesCount }
+                  : postItem,
+              ),
+            })),
+          };
+        },
+      );
+    },
+  });
+
+  const handleLikePress = async (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    likeMutation.mutate();
+  };
+
+  const handleCardPress = () => {
+    if (!openPostOnPress) {
       return;
     }
-
-    const lines = event.nativeEvent.lines;
-
-    if (lines.length <= PREVIEW_COLLAPSED_LINES) {
-      setIsOverflowing(false);
-      setCollapsedText(text);
-      return;
-    }
-
-    const visibleText = lines
-      .slice(0, PREVIEW_COLLAPSED_LINES)
-      .map((line) => line.text)
-      .join('');
-    const trimLength = Math.max(0, visibleText.length - PREVIEW_RESERVED_CHARS);
-    const nextCollapsedText = visibleText.slice(0, trimLength).trimEnd();
-
-    setIsOverflowing(true);
-    setCollapsedText(nextCollapsedText.length > 0 ? `${nextCollapsedText}... ` : '');
+    postStore.rememberFromFeed(post);
+    router.push(`/posts/${post.id}`);
   };
 
   return (
-    <View style={styles.previewContainer}>
-      {isOverflowing === null ? (
-        <Text style={styles.previewMeasure} onTextLayout={handleMeasureLayout}>
-          {text}
-        </Text>
-      ) : null}
-
-      {expanded ? (
-        <Text style={styles.preview}>{text}</Text>
-      ) : isOverflowing ? (
-        <Text style={styles.preview}>
-          {collapsedText}
-          <Text onPress={() => setExpanded(true)} style={styles.previewAction}>
-            {PREVIEW_ACTION_TEXT}
-          </Text>
-        </Text>
-      ) : (
-        <Text numberOfLines={PREVIEW_COLLAPSED_LINES} style={styles.preview}>
-          {text}
-        </Text>
-      )}
-    </View>
-  );
-}
-
-function FeedPostCardComponent({ post }: FeedPostCardProps) {
-  const isPaid = post.tier === 'paid';
-  return (
-    <View style={styles.card}>
-      <View style={styles.authorRow}>
-        <Image source={{ uri: post.author.avatarUrl }} style={styles.avatar} />
-        <Text style={styles.authorName}>{post.author.displayName}</Text>
-      </View>
+    <Pressable onPress={handleCardPress} style={styles.card}>
+      <PostAuthorRow author={post.author} />
       {isPaid ? (
-        <View style={styles.paidContent}>
-          <View style={styles.paidHero}>
-            <Image source={{ uri: post.coverUrl }} style={styles.cover} contentFit="cover" blurRadius={24} />
-            <View style={styles.paidOverlay}>
-              <View style={styles.paidBadge}>
-                <DollarIcon width={30} height={30} color={tokens.colors.white} />
-              </View>
-              <Text style={styles.paidMessage}>
-                Контент скрыт пользователем.
-                {'\n'}
-                Доступ откроется после доната
-              </Text>
-              <Pressable style={styles.paidButton} hitSlop={8}>
-                <Text style={styles.paidButtonText}>Отправить донат</Text>
-              </Pressable>
-            </View>
-          </View>
-          <View style={styles.paidSkeleton}>
-            <View style={[styles.paidSkeletonLine, styles.paidSkeletonShort]} />
-            <View style={styles.paidSkeletonLine} />
-          </View>
-        </View>
+        <PaidPostCardContent coverUrl={post.coverUrl} />
       ) : (
         <>
           <View style={styles.postInfo}>
-            <Image source={{ uri: post.coverUrl }} style={styles.cover} contentFit="cover" />
+            <Image
+              source={{ uri: post.coverUrl }}
+              style={styles.cover}
+              contentFit="cover"
+            />
             <Text numberOfLines={2} style={styles.title}>
               {post.title}
             </Text>
-            <ExpandablePreview text={post.preview} />
+            {expandedPreview ? (
+              <Text style={styles.preview}>{contentPreview}</Text>
+            ) : (
+              <ExpandablePreview text={contentPreview} />
+            )}
           </View>
           <View style={styles.statsRow}>
-            <View style={styles.statPill}>
-              <LikeIcon width={20} height={20} />
-              <Text style={styles.statValue}>{post.likesCount}</Text>
-            </View>
+            <Pressable
+              style={[styles.statPill, post.isLiked && styles.statPillActive]}
+              onPress={handleLikePress}
+              disabled={likeMutation.isPending}
+            >
+              <LikeIcon
+                width={20}
+                height={20}
+                color={post.isLiked ? tokens.colors.white : undefined}
+              />
+              <Text
+                style={[
+                  styles.statValue,
+                  post.isLiked && styles.statValueActive,
+                ]}
+              >
+                {post.likesCount}
+              </Text>
+            </Pressable>
             <View style={styles.statPill}>
               <CommentIcon width={20} height={20} />
               <Text style={styles.statValue}>{post.commentsCount}</Text>
@@ -123,7 +139,7 @@ function FeedPostCardComponent({ post }: FeedPostCardProps) {
           </View>
         </>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -136,22 +152,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     gap: tokens.spacing.lg,
   },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: tokens.spacing.sm,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: tokens.colors.border,
-  },
-  authorName: {
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: tokens.typography.body,
-    color: tokens.colors.textPrimary,
-  },
   cover: {
     aspectRatio: 1,
     marginHorizontal: -tokens.spacing.lg,
@@ -161,114 +161,40 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.sm,
   },
   title: {
-    fontFamily: 'Manrope_700Bold',
+    fontFamily: "Manrope_700Bold",
     fontSize: tokens.typography.title,
     lineHeight: 26,
     color: tokens.colors.textPrimary,
   },
   preview: {
-    fontFamily: 'Manrope_500Medium',
+    fontFamily: "Manrope_500Medium",
     fontSize: tokens.typography.body,
     lineHeight: 20,
     color: tokens.colors.textSecondary,
-  },
-  previewContainer: {
-    position: 'relative',
-  },
-  previewMeasure: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    opacity: 0,
-    fontFamily: 'Manrope_500Medium',
-    fontSize: tokens.typography.body,
-    lineHeight: 20,
-    color: tokens.colors.textSecondary,
-  },
-  previewAction: {
-    color: tokens.colors.accentStrong,
-    fontFamily: 'Manrope_500Medium',
-    fontSize: tokens.typography.body,
-    lineHeight: 20,
-  },
-  paidContent: {
-    marginHorizontal: -tokens.spacing.lg,
-    backgroundColor: tokens.colors.surface,
-  },
-  paidHero: {
-    position: 'relative',
-    aspectRatio: 1,
-    overflow: 'hidden',
-  },
-  paidOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    backgroundColor: tokens.colors.paidCoverOverlay,
-    gap: tokens.spacing.md,
-  },
-  paidBadge: {
-    borderRadius: 10,
-    padding: 6,
-    backgroundColor: tokens.colors.accentStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paidMessage: {
-    color: tokens.colors.white,
-    textAlign: 'center',
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 15,
-    lineHeight: 20,
-    fontVariant: ['lining-nums', 'tabular-nums'],
-  },
-  paidButton: {
-    width: 239,
-    height: 42,
-    gap: 8,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.colors.accentStrong,
-  },
-  paidButtonText: {
-    color: tokens.colors.white,
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 15,
-    lineHeight: 26,
-  },
-  paidSkeleton: {
-    backgroundColor: tokens.colors.skeletonSurface,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.lg,
-    gap: tokens.spacing.sm,
-  },
-  paidSkeletonLine: {
-    height: 36,
-    borderRadius: tokens.radius.full,
-    backgroundColor: tokens.colors.skeleton,
-  },
-  paidSkeletonShort: {
-    width: '45%',
   },
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: tokens.spacing.sm,
   },
   statPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: tokens.spacing.xs,
     backgroundColor: tokens.colors.pillBackground,
     borderRadius: tokens.radius.full,
     padding: 6,
   },
+  statPillActive: {
+    backgroundColor: tokens.colors.likeActive,
+  },
   statValue: {
     color: tokens.colors.textTertiary,
-    fontFamily: 'Manrope_700Bold',
+    fontFamily: "Manrope_700Bold",
     fontSize: 13,
     lineHeight: 18,
+  },
+  statValueActive: {
+    color: tokens.colors.white,
   },
 });

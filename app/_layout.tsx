@@ -1,20 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import {
   Manrope_400Regular,
   Manrope_500Medium,
   Manrope_600SemiBold,
   Manrope_700Bold,
   useFonts,
-} from '@expo-google-fonts/manrope';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { useState } from 'react';
+} from "@expo-google-fonts/manrope";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { Platform } from "react-native";
+import "react-native-reanimated";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { RootStoreProvider } from '@/stores/root-store-context';
-import { RootStore } from '@/stores/root-store';
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { RootStore } from "@/stores/root-store";
+import { RootStoreProvider } from "@/stores/root-store-context";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -34,9 +39,21 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <RootStoreProvider store={rootStore}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+        >
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="posts/[id]"
+              options={{
+                headerShown: false,
+                gestureEnabled: true,
+                ...(Platform.OS === "ios"
+                  ? { fullScreenGestureEnabled: true }
+                  : null),
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

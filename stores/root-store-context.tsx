@@ -26,3 +26,7 @@ export function useRootStore() {
 export function useFeedUiStore() {
   return useRootStore().feedUiStore;
 }
+
+export function usePostStore() {
+  return useRootStore().postStore;
+}
